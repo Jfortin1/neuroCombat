@@ -12,7 +12,8 @@ def neuroCombat(dat,
            categorical_cols=None,
            continuous_cols=None,
            eb=True,
-           parametric=True):
+           parametric=True,
+           mean_only=False):
     """
     Run ComBat to remove scanner effects in multi-site imaging data
 
@@ -38,6 +39,9 @@ def neuroCombat(dat,
 
     parametric : should parametric adjustements be performed?
         - True by default
+
+    mean_only : should only be the mean adjusted (no scaling)?
+        - False by default
         
     Returns
     -------
@@ -101,16 +105,16 @@ def neuroCombat(dat,
     
     # fit L/S models and find priors
     print('[neuroCombat] Fitting L/S model and finding priors')
-    LS_dict = fit_LS_model_and_find_priors(s_data, design, info_dict)
+    LS_dict = fit_LS_model_and_find_priors(s_data, design, info_dict, mean_only)
 
     # find parametric adjustments
     if eb:
         if parametric:
             print('[neuroCombat] Finding parametric adjustments')
-            gamma_star, delta_star = find_parametric_adjustments(s_data, LS_dict, info_dict)
+            gamma_star, delta_star = find_parametric_adjustments(s_data, LS_dict, info_dict, mean_only)
         else:
             print('[neuroCombat] Finding non-parametric adjustments')
-            gamma_star, delta_star = find_non_parametric_adjustments(s_data, LS_dict, info_dict)
+            gamma_star, delta_star = find_non_parametric_adjustments(s_data, LS_dict, info_dict, mean_only)
     else:
         print('[neuroCombat] Finding L/S adjustments without Empirical Bayes')
         gamma_star, delta_star = find_non_eb_adjustments(s_data, LS_dict, info_dict)
@@ -180,14 +184,14 @@ def standardize_across_features(X, design, info_dict):
 
     return s_data, stand_mean, var_pooled
 
-def aprior(gamma_hat):
-    m = np.mean(gamma_hat)
-    s2 = np.var(gamma_hat,ddof=1)
+def aprior(delta_hat):
+    m = np.mean(delta_hat)
+    s2 = np.var(delta_hat,ddof=1)
     return (2 * s2 +m**2) / float(s2)
 
-def bprior(gamma_hat):
-    m = gamma_hat.mean()
-    s2 = np.var(gamma_hat,ddof=1)
+def bprior(delta_hat):
+    m = delta_hat.mean()
+    s2 = np.var(delta_hat,ddof=1)
     return (m*s2+m**3)/s2
 
 def postmean(g_hat, g_bar, n, d_star, t2):
@@ -196,7 +200,7 @@ def postmean(g_hat, g_bar, n, d_star, t2):
 def postvar(sum2, n, a, b):
     return (0.5 * sum2 + b) / (n / 2.0 + a - 1.0)
 
-def fit_LS_model_and_find_priors(s_data, design, info_dict):
+def fit_LS_model_and_find_priors(s_data, design, info_dict, mean_only):
     n_batch = info_dict['n_batch']
     batch_info = info_dict['batch_info'] 
     
@@ -205,13 +209,20 @@ def fit_LS_model_and_find_priors(s_data, design, info_dict):
 
     delta_hat = []
     for i, batch_idxs in enumerate(batch_info):
-        delta_hat.append(np.var(s_data[:,batch_idxs],axis=1,ddof=1))
-    
+        if mean_only:
+            delta_hat.append(np.repeat(1, s_data.shape[0]))
+        else:
+            delta_hat.append(np.var(s_data[:,batch_idxs],axis=1,ddof=1))
+
     gamma_bar = np.mean(gamma_hat, axis=1) 
     t2 = np.var(gamma_hat,axis=1, ddof=1)
 
-    a_prior = list(map(aprior, delta_hat))
-    b_prior = list(map(bprior, delta_hat))
+    if mean_only:
+        a_prior = None
+        b_prior = None
+    else:
+        a_prior = list(map(aprior, delta_hat))
+        b_prior = list(map(bprior, delta_hat))
 
     LS_dict = {}
     LS_dict['gamma_hat'] = gamma_hat
@@ -269,25 +280,30 @@ def int_eprior(sdat, g_hat, d_hat):
     return adjust
 
 
-def find_parametric_adjustments(s_data, LS, info_dict):
+def find_parametric_adjustments(s_data, LS, info_dict, mean_only):
     batch_info  = info_dict['batch_info'] 
 
     gamma_star, delta_star = [], []
     for i, batch_idxs in enumerate(batch_info):
-        temp = it_sol(s_data[:,batch_idxs], LS['gamma_hat'][i],
-                    LS['delta_hat'][i], LS['gamma_bar'][i], LS['t2'][i], 
-                    LS['a_prior'][i], LS['b_prior'][i])
-
-        gamma_star.append(temp[0])
-        delta_star.append(temp[1])
+        if mean_only:
+            gamma_star.append(postmean(LS['gamma_hat'][i], LS['gamma_bar'][i], 1, 1, LS['t2'][i]))
+            delta_star.append(np.repeat(1, s_data.shape[0]))
+        else:
+            temp = it_sol(s_data[:,batch_idxs], LS['gamma_hat'][i],
+                        LS['delta_hat'][i], LS['gamma_bar'][i], LS['t2'][i], 
+                        LS['a_prior'][i], LS['b_prior'][i])
+            gamma_star.append(temp[0])
+            delta_star.append(temp[1])
 
     return np.array(gamma_star), np.array(delta_star)
 
-def find_non_parametric_adjustments(s_data, LS, info_dict):
+def find_non_parametric_adjustments(s_data, LS, info_dict, mean_only):
     batch_info  = info_dict['batch_info'] 
 
     gamma_star, delta_star = [], []
     for i, batch_idxs in enumerate(batch_info):
+        if mean_only:
+            LS['delta_hat'][i] = np.repeat(1, s_data.shape[0])
         temp = int_eprior(s_data[:,batch_idxs], LS['gamma_hat'][i],
                     LS['delta_hat'][i])
 
