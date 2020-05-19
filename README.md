@@ -10,7 +10,7 @@ This is the maintained and official version of neuroCombat (officially hosted [h
 
 ## Installation
 
-neuroCombat is hosted on PyPI and the eaisest way to install neuroCombat is to use ```pip```:
+neuroCombat is hosted on PyPI, and the easiest way to install neuroCombat is to use the ```pip``` command:
 
 ```
 pip install neuroCombat
