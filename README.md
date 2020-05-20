@@ -5,12 +5,12 @@
 [![PythonVersion](https://img.shields.io/pypi/pyversions/neuroCombat)]()
 
 
-This is the maintained and official version of neuroCombat (officially hosted [here](https://github.com/ncullen93/neuroCombat), introduced in [our recent paper](https://www.sciencedirect.com/science/article/pii/S105381191730931X).
+This is the maintained and official version of neuroCombat (previously hosted [here](https://github.com/ncullen93/neuroCombat), introduced in [our recent paper](https://www.sciencedirect.com/science/article/pii/S105381191730931X).
 
 
 ## Installation
 
-neuroCombat is hosted on PyPI and the eaisest way to install neuroCombat is to use ```pip```:
+neuroCombat is hosted on PyPI, and the easiest way to install neuroCombat is to use the ```pip``` command:
 
 ```
 pip install neuroCombat
