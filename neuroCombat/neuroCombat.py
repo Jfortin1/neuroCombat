@@ -126,7 +126,10 @@ def neuroCombat(dat,
 
     bayes_data = np.array(bayes_data)
 
-    return bayes_data.T
+    return bayes_data
+
+
+
 
 def make_design_matrix(Y, batch_col, cat_cols, num_cols):
     """
