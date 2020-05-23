@@ -13,7 +13,8 @@ def neuroCombat(dat,
            continuous_cols=None,
            eb=True,
            parametric=True,
-           mean_only=False):
+           mean_only=False,
+           ref_batch=None):
     """
     Run ComBat to remove scanner effects in multi-site imaging data
 
@@ -23,15 +24,15 @@ def neuroCombat(dat,
         neuroimaging data to correct with shape = (features, samples)
         e.g. cortical thickness measurements, image voxels, etc
 
-    covars : a pandas data frame w/ shape = (samples, features)
+    covars : a pandas data frame w/ shape = (samples, covariates)
         demographic/phenotypic/behavioral/batch data 
         
-    batch_col : string indicating batch (scanner) variable in covars
+    batch_col : string indicating batch (scanner) column name in covars
 
-    categorical_cols : string or list of strings indicating categorical variables to adjust for
+    categorical_cols : string or list of strings of categorical variables to adjust for
         - e.g. male or female
 
-    continuous_cols : string or list of strings indicating continuous variables to adjust for
+    continuous_cols : string or list of strings of continuous variables to adjust for
         - e.g. age
 
     eb : should Empirical Bayes be performed?
@@ -42,6 +43,9 @@ def neuroCombat(dat,
 
     mean_only : should only be the mean adjusted (no scaling)?
         - False by default
+
+    ref_batch : batch (site or scanner) to be used as reference for batch adjustment.
+        - False by default
         
     Returns
     -------
@@ -51,7 +55,7 @@ def neuroCombat(dat,
     ### CLEANING UP INPUT DATA ###
     ##############################
     if not isinstance(covars, pd.DataFrame):
-        raise ValueError('covars must be pandas datafraae -> try: covars = pandas.DataFrame(covars)')
+        raise ValueError('covars must be pandas dataframe -> try: covars = pandas.DataFrame(covars)')
 
     if not isinstance(categorical_cols, (list,tuple)):
         if categorical_cols is None:
@@ -74,7 +78,8 @@ def neuroCombat(dat,
 
     if isinstance(dat, pd.DataFrame):
         dat = np.array(dat, dtype='float32')
-    #dat = dat.T # transpose data to make it (features, samples)... a weird genetics convention..
+
+
 
     ##############################
 
@@ -83,12 +88,24 @@ def neuroCombat(dat,
     cat_cols = [np.where(covar_labels==c_var)[0][0] for c_var in categorical_cols]
     num_cols = [np.where(covar_labels==n_var)[0][0] for n_var in continuous_cols]
 
-    # conver batch col to integer
-    covars[:,batch_col] = np.unique(covars[:,batch_col],return_inverse=True)[-1]
+    # convert batch col to integer
+    if ref_batch is None:
+        ref_level=None
+    else:
+        ref_indices = covars[:,batch_col][covars[:,batch_col]==ref_batch]
+        if ref_indices.shape[0]==0:
+            ref_level=None
+            ref_batch=None
+            print('[neuroCombat] batch.ref not found. Setting to None.')
+            covars[:,batch_col] = np.unique(covars[:,batch_col],return_inverse=True)[-1]
+        else:
+            covars[:,batch_col] = np.unique(covars[:,batch_col],return_inverse=True)[-1]
+            ref_level = covars[np.int(ref_indices[0]),batch_col]
     # create dictionary that stores batch info
     (batch_levels, sample_per_batch) = np.unique(covars[:,batch_col],return_counts=True)
     info_dict = {
         'batch_levels': batch_levels.astype('int'),
+        'ref_level': ref_level,
         'n_batch': len(batch_levels),
         'n_sample': int(covars.shape[0]),
         'sample_per_batch': sample_per_batch.astype('int'),
@@ -97,11 +114,11 @@ def neuroCombat(dat,
 
     # create design matrix
     print('[neuroCombat] Creating design matrix')
-    design = make_design_matrix(covars, batch_col, cat_cols, num_cols)
+    design = make_design_matrix(covars, batch_col, cat_cols, num_cols, ref_level)
     
     # standardize data across features
     print('[neuroCombat] Standardizing data across features')
-    s_data, s_mean, v_pool = standardize_across_features(dat, design, info_dict)
+    s_data, s_mean, v_pool = standardize_across_features(dat, design, info_dict, ref_level)
     
     # fit L/S models and find priors
     print('[neuroCombat] Fitting L/S model and finding priors')
@@ -111,18 +128,19 @@ def neuroCombat(dat,
     if eb:
         if parametric:
             print('[neuroCombat] Finding parametric adjustments')
-            gamma_star, delta_star = find_parametric_adjustments(s_data, LS_dict, info_dict, mean_only)
+            gamma_star, delta_star = find_parametric_adjustments(s_data, LS_dict, info_dict, mean_only, ref_level)
         else:
             print('[neuroCombat] Finding non-parametric adjustments')
-            gamma_star, delta_star = find_non_parametric_adjustments(s_data, LS_dict, info_dict, mean_only)
+            gamma_star, delta_star = find_non_parametric_adjustments(s_data, LS_dict, info_dict, mean_only, ref_level)
     else:
         print('[neuroCombat] Finding L/S adjustments without Empirical Bayes')
-        gamma_star, delta_star = find_non_eb_adjustments(s_data, LS_dict, info_dict)
+        gamma_star, delta_star = find_non_eb_adjustments(s_data, LS_dict, info_dict, ref_level)
 
     # adjust data
     print('[neuroCombat] Final adjustment of data')
     bayes_data = adjust_data_final(s_data, design, gamma_star, delta_star, 
-                                                s_mean, v_pool, info_dict)
+                                                s_mean, v_pool, info_dict, 
+                                                ref_level,dat)
 
     bayes_data = np.array(bayes_data)
 
@@ -131,7 +149,7 @@ def neuroCombat(dat,
 
 
 
-def make_design_matrix(Y, batch_col, cat_cols, num_cols):
+def make_design_matrix(Y, batch_col, cat_cols, num_cols, ref_level):
     """
     Return Matrix containing the following parts:
         - one-hot matrix of batch variable (full)
@@ -152,6 +170,8 @@ def make_design_matrix(Y, batch_col, cat_cols, num_cols):
     # convert batch column to integer in case it's string
     batch = np.unique(Y[:,batch_col],return_inverse=True)[-1]
     batch_onehot = to_categorical(batch, len(np.unique(batch)))
+    if ref_level is not None:
+        batch_onehot[:,ref_level] = np.ones(batch_onehot.shape[0])
     hstack_list.append(batch_onehot)
 
     ### categorical one-hots ###
@@ -169,16 +189,43 @@ def make_design_matrix(Y, batch_col, cat_cols, num_cols):
     design = np.hstack(hstack_list)
     return design
 
-def standardize_across_features(X, design, info_dict):
+
+def standardize_across_features(X, design, info_dict, ref_level):
     n_batch = info_dict['n_batch']
     n_sample = info_dict['n_sample']
     sample_per_batch = info_dict['sample_per_batch']
+    batch_info = info_dict['batch_info']
 
-    B_hat = np.dot(np.dot(la.inv(np.dot(design.T, design)), design.T), X.T)
-    grand_mean = np.dot((sample_per_batch/ float(n_sample)).T, B_hat[:n_batch,:])
-    var_pooled = np.dot(((X - np.dot(design, B_hat).T)**2), np.ones((n_sample, 1)) / float(n_sample))
+    def get_beta_with_nan(yy, mod):
+        wh = np.isfinite(yy)
+        mod = mod[wh,:]
+        yy = yy[wh]
+        B = np.dot(np.dot(la.inv(np.dot(mod.T, mod)), mod.T), yy.T)
+        return B
 
+    betas = []
+    for i in range(X.shape[0]):
+        betas.append(get_beta_with_nan(X[i,:], design))
+    B_hat = np.vstack(betas).T
+    
+    #B_hat = np.dot(np.dot(la.inv(np.dot(design.T, design)), design.T), X.T)
+    if ref_level is None:
+        grand_mean = np.dot((sample_per_batch/ float(n_sample)).T, B_hat[:n_batch,:])
+    else:
+        grand_mean = np.transpose(B_hat[ref_level,:])
     stand_mean = np.dot(grand_mean.T.reshape((len(grand_mean), 1)), np.ones((1, n_sample)))
+    #var_pooled = np.dot(((X - np.dot(design, B_hat).T)**2), np.ones((n_sample, 1)) / float(n_sample))
+
+    ######### Continue here. 
+
+    if ref_level is not None:
+        X_ref = X[:,batch_info[ref_level]]
+        design_ref = design[batch_info[ref_level],:]
+        n_sample_ref = sample_per_batch[ref_level]
+        var_pooled = np.dot(((X_ref - np.dot(design_ref, B_hat).T)**2), np.ones((n_sample_ref, 1)) / float(n_sample_ref))
+    else:
+        var_pooled = np.dot(((X - np.dot(design, B_hat).T)**2), np.ones((n_sample, 1)) / float(n_sample))
+
     tmp = np.array(design.copy())
     tmp[:,:n_batch] = 0
     stand_mean  += np.dot(tmp, B_hat).T
@@ -283,7 +330,7 @@ def int_eprior(sdat, g_hat, d_hat):
     return adjust
 
 
-def find_parametric_adjustments(s_data, LS, info_dict, mean_only):
+def find_parametric_adjustments(s_data, LS, info_dict, mean_only, ref_level):
     batch_info  = info_dict['batch_info'] 
 
     gamma_star, delta_star = [], []
@@ -298,9 +345,16 @@ def find_parametric_adjustments(s_data, LS, info_dict, mean_only):
             gamma_star.append(temp[0])
             delta_star.append(temp[1])
 
-    return np.array(gamma_star), np.array(delta_star)
+    gamma_star = np.array(gamma_star)
+    delta_star = np.array(delta_star)
 
-def find_non_parametric_adjustments(s_data, LS, info_dict, mean_only):
+    if ref_level is not None:
+        gamma_star[ref_level,:] = np.zeros(gamma_star.shape[-1]) 
+        delta_star[ref_level,:] = np.ones(delta_star.shape[-1]) 
+
+    return gamma_star, delta_star
+
+def find_non_parametric_adjustments(s_data, LS, info_dict, mean_only,ref_level):
     batch_info  = info_dict['batch_info'] 
 
     gamma_star, delta_star = [], []
@@ -313,12 +367,26 @@ def find_non_parametric_adjustments(s_data, LS, info_dict, mean_only):
         gamma_star.append(temp[0])
         delta_star.append(temp[1])
 
-    return np.array(gamma_star), np.array(delta_star)
+    gamma_star = np.array(gamma_star)
+    delta_star = np.array(delta_star)
 
-def find_non_eb_adjustments(s_data, LS, info_dict):
-    return LS['gamma_hat'], LS['delta_hat']
+    if ref_level is not None:
+        gamma_star[ref_level,:] = np.zeros(gamma_star.shape[-1]) 
+        delta_star[ref_level,:] = np.ones(delta_star.shape[-1]) 
 
-def adjust_data_final(s_data, design, gamma_star, delta_star, stand_mean, var_pooled, info_dict):
+    return gamma_star, delta_star
+
+def find_non_eb_adjustments(s_data, LS, info_dict, ref_level):
+    gamma_star = np.array(LS['gamma_hat'])
+    delta_star = np.array(LS['delta_hat'])
+    
+    if ref_level is not None:
+        gamma_star[ref_level,:] = np.zeros(gamma_star.shape[-1]) 
+        delta_star[ref_level,:] = np.ones(delta_star.shape[-1])
+    
+    return gamma_star, delta_star
+
+def adjust_data_final(s_data, design, gamma_star, delta_star, stand_mean, var_pooled, info_dict, ref_level, dat):
     sample_per_batch = info_dict['sample_per_batch']
     n_batch = info_dict['n_batch']
     n_sample = info_dict['n_sample']
@@ -340,5 +408,8 @@ def adjust_data_final(s_data, design, gamma_star, delta_star, stand_mean, var_po
 
     vpsq = np.sqrt(var_pooled).reshape((len(var_pooled), 1))
     bayesdata = bayesdata * np.dot(vpsq, np.ones((1, n_sample))) + stand_mean
+
+    if ref_level is not None:
+        bayesdata[:, batch_info[ref_level]] = dat[:,batch_info[ref_level]]
 
     return bayesdata
