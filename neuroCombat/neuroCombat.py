@@ -118,7 +118,7 @@ def neuroCombat(dat,
     
     # standardize data across features
     print('[neuroCombat] Standardizing data across features')
-    s_data, s_mean, v_pool = standardize_across_features(dat, design, info_dict, ref_level)
+    s_data, s_mean, v_pool = standardize_across_features(dat, design, info_dict)
     
     # fit L/S models and find priors
     print('[neuroCombat] Fitting L/S model and finding priors')
@@ -128,19 +128,18 @@ def neuroCombat(dat,
     if eb:
         if parametric:
             print('[neuroCombat] Finding parametric adjustments')
-            gamma_star, delta_star = find_parametric_adjustments(s_data, LS_dict, info_dict, mean_only, ref_level)
+            gamma_star, delta_star = find_parametric_adjustments(s_data, LS_dict, info_dict, mean_only)
         else:
             print('[neuroCombat] Finding non-parametric adjustments')
-            gamma_star, delta_star = find_non_parametric_adjustments(s_data, LS_dict, info_dict, mean_only, ref_level)
+            gamma_star, delta_star = find_non_parametric_adjustments(s_data, LS_dict, info_dict, mean_only)
     else:
         print('[neuroCombat] Finding L/S adjustments without Empirical Bayes')
-        gamma_star, delta_star = find_non_eb_adjustments(s_data, LS_dict, info_dict, ref_level)
+        gamma_star, delta_star = find_non_eb_adjustments(s_data, LS_dict, info_dict)
 
     # adjust data
     print('[neuroCombat] Final adjustment of data')
     bayes_data = adjust_data_final(s_data, design, gamma_star, delta_star, 
-                                                s_mean, v_pool, info_dict, 
-                                                ref_level,dat)
+                                    s_mean, v_pool, info_dict,dat)
 
     bayes_data = np.array(bayes_data)
 
@@ -190,11 +189,12 @@ def make_design_matrix(Y, batch_col, cat_cols, num_cols, ref_level):
     return design
 
 
-def standardize_across_features(X, design, info_dict, ref_level):
+def standardize_across_features(X, design, info_dict):
     n_batch = info_dict['n_batch']
     n_sample = info_dict['n_sample']
     sample_per_batch = info_dict['sample_per_batch']
     batch_info = info_dict['batch_info']
+    ref_level = info_dict['ref_level']
 
     def get_beta_with_nan(yy, mod):
         wh = np.isfinite(yy)
@@ -330,8 +330,9 @@ def int_eprior(sdat, g_hat, d_hat):
     return adjust
 
 
-def find_parametric_adjustments(s_data, LS, info_dict, mean_only, ref_level):
+def find_parametric_adjustments(s_data, LS, info_dict, mean_only):
     batch_info  = info_dict['batch_info'] 
+    ref_level = info_dict['ref_level']
 
     gamma_star, delta_star = [], []
     for i, batch_idxs in enumerate(batch_info):
@@ -354,8 +355,9 @@ def find_parametric_adjustments(s_data, LS, info_dict, mean_only, ref_level):
 
     return gamma_star, delta_star
 
-def find_non_parametric_adjustments(s_data, LS, info_dict, mean_only,ref_level):
+def find_non_parametric_adjustments(s_data, LS, info_dict, mean_only):
     batch_info  = info_dict['batch_info'] 
+    ref_level = info_dict['ref_level']
 
     gamma_star, delta_star = [], []
     for i, batch_idxs in enumerate(batch_info):
@@ -376,9 +378,10 @@ def find_non_parametric_adjustments(s_data, LS, info_dict, mean_only,ref_level):
 
     return gamma_star, delta_star
 
-def find_non_eb_adjustments(s_data, LS, info_dict, ref_level):
+def find_non_eb_adjustments(s_data, LS, info_dict):
     gamma_star = np.array(LS['gamma_hat'])
     delta_star = np.array(LS['delta_hat'])
+    ref_level = info_dict['ref_level']
     
     if ref_level is not None:
         gamma_star[ref_level,:] = np.zeros(gamma_star.shape[-1]) 
@@ -386,11 +389,12 @@ def find_non_eb_adjustments(s_data, LS, info_dict, ref_level):
     
     return gamma_star, delta_star
 
-def adjust_data_final(s_data, design, gamma_star, delta_star, stand_mean, var_pooled, info_dict, ref_level, dat):
+def adjust_data_final(s_data, design, gamma_star, delta_star, stand_mean, var_pooled, info_dict, dat):
     sample_per_batch = info_dict['sample_per_batch']
     n_batch = info_dict['n_batch']
     n_sample = info_dict['n_sample']
     batch_info = info_dict['batch_info']
+    ref_level = info_dict['ref_level']
 
     batch_design = design[:,:n_batch]
 
