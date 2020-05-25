@@ -3,6 +3,7 @@
 [![License: MIT](https://img.shields.io/github/license/Jfortin1/neuroCombat)](https://opensource.org/licenses/MIT) 
 [![Version](https://img.shields.io/pypi/v/neuroCombat)](https://pypi.org/project/neuroCombat/)
 [![PythonVersion](https://img.shields.io/pypi/pyversions/neuroCombat)]()
+<a href="https://travis-ci.org/Jfortin1/neuroCombat"><img src="https://travis-ci.org/Jfortin1/neuroCombat.svg?branch=master" alt="Build status"></a> 
 
 
 This is the maintained and official version of neuroCombat (previously hosted [here](https://github.com/ncullen93/neuroCombat)) introduced in our [our recent paper](https://www.sciencedirect.com/science/article/pii/S105381191730931X).
