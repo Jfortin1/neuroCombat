@@ -92,7 +92,7 @@ def neuroCombat(dat,
     if ref_batch is None:
         ref_level=None
     else:
-        ref_indices = covars[:,batch_col][covars[:,batch_col]==ref_batch]
+        ref_indices = np.argwhere(covars[:, batch_col] == ref_batch).squeeze()
         if ref_indices.shape[0]==0:
             ref_level=None
             ref_batch=None
