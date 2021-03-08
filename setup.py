@@ -14,12 +14,12 @@ setuptools.setup(
   ],
   description="ComBat algorithm for harmonizing multi-site imaging data",
   license="MIT license",
-  url="https://github.com/fortinj1/neuroCombat",
+  url="https://github.com/Jfortin1/neuroCombat",
   project_urls={
-    "Github": "https://github.com/fortinj2/neuroCombat",
+    "Github": "https://github.com/Jfortin1/neuroCombat",
   },
   name='neuroCombat',
   packages=['neuroCombat',],
-  version='0.2.9',
+  version='0.2.9-2',
   zip_safe=False,
 )

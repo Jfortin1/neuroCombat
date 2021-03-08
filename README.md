@@ -1,4 +1,4 @@
-# ComBat multi-site harmonization in Python with neuroCombat
+# Multi-site harmonization in Python with neuroCombat
 
 [![License: MIT](https://img.shields.io/github/license/Jfortin1/neuroCombat)](https://opensource.org/licenses/MIT) 
 [![Version](https://img.shields.io/pypi/v/neuroCombat)](https://pypi.org/project/neuroCombat/)
