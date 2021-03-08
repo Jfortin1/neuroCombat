@@ -16,7 +16,7 @@ setuptools.setup(
   license="MIT license",
   url="https://github.com/fortinj2/neuroCombat",
   project_urls={
-    "Source Code": "https://github.com/fortinj2/neuroCombat",
+    "Github": "https://github.com/fortinj1/neuroCombat",
   },
   name='neuroCombat',
   packages=['neuroCombat',],
