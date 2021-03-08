@@ -252,6 +252,10 @@ def postmean(g_hat, g_bar, n, d_star, t2):
 def postvar(sum2, n, a, b):
     return (0.5 * sum2 + b) / (n / 2.0 + a - 1.0)
 
+def convert_zeroes(x):
+    x[x==0] = 1
+    return x
+
 def fit_LS_model_and_find_priors(s_data, design, info_dict, mean_only):
     n_batch = info_dict['n_batch']
     batch_info = info_dict['batch_info'] 
@@ -265,7 +269,8 @@ def fit_LS_model_and_find_priors(s_data, design, info_dict, mean_only):
             delta_hat.append(np.repeat(1, s_data.shape[0]))
         else:
             delta_hat.append(np.var(s_data[:,batch_idxs],axis=1,ddof=1))
-
+    
+    delta_hat = list(map(convert_zeroes,delta_hat))
     gamma_bar = np.mean(gamma_hat, axis=1) 
     t2 = np.var(gamma_hat,axis=1, ddof=1)
 
