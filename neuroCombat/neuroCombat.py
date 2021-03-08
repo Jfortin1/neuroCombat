@@ -226,6 +226,8 @@ def standardize_across_features(X, design, info_dict):
     else:
         var_pooled = np.dot(((X - np.dot(design, B_hat).T)**2), np.ones((n_sample, 1)) / float(n_sample))
 
+    var_pooled[var_pooled==0] = np.median(var_pooled!=0)
+
     tmp = np.array(design.copy())
     tmp[:,:n_batch] = 0
     stand_mean  += np.dot(tmp, B_hat).T

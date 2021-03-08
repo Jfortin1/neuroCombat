@@ -20,6 +20,6 @@ setuptools.setup(
   },
   name='neuroCombat',
   packages=['neuroCombat',],
-  version='0.2.7',
+  version='0.2.8',
   zip_safe=False,
 )
