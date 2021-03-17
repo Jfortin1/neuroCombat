@@ -21,19 +21,19 @@ def neuroCombat(dat,
     Arguments
     ---------
     dat : a pandas data frame or numpy array
-        neuroimaging data to correct with shape = (features, samples)
-        e.g. cortical thickness measurements, image voxels, etc
+        - neuroimaging data to correct with shape = (features, samples) e.g. cortical thickness measurements, image voxels, etc
 
     covars : a pandas data frame w/ shape = (samples, covariates)
-        demographic/phenotypic/behavioral/batch data 
+        - contains the batch/scanner covariate as well as additional covariates (optional) that should be preserved during harmonization.
         
-    batch_col : string indicating batch (scanner) column name in covars
+    batch_col : string
+        - indicates batch (scanner) column name in covars (e.g. "scanner")
 
-    categorical_cols : string or list of strings of categorical variables to adjust for
-        - e.g. male or female
+    categorical_cols : list of strings
+        - specifies column names in covars data frame of categorical variables to be preserved during harmonization (e.g. ["sex", "disease"])
 
-    continuous_cols : string or list of strings of continuous variables to adjust for
-        - e.g. age
+    continuous_cols : list of strings
+        - indicates column names in covars data frame of continuous variables to be preserved during harmonization (e.g. ["age"])
 
     eb : should Empirical Bayes be performed?
         - True by default
