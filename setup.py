@@ -6,7 +6,7 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
     
 setuptools.setup(
-  author="Jean-Philippe Fortin, Nick Cullen",
+  author="Jean-Philippe Fortin, Nick Cullen, Tim Robert-Fitzgerald",
   author_email='fortin946@gmail.com,',
   classifiers=[
     'License :: OSI Approved :: MIT License',
@@ -19,7 +19,7 @@ setuptools.setup(
     "Github": "https://github.com/Jfortin1/neuroCombat",
   },
   name='neuroCombat',
-  packages=['neuroCombat',],
-  version='0.2.9-2',
+  packages=['neuroCombat'],
+  version='0.2.10',
   zip_safe=False,
 )

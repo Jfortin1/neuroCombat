@@ -1,2 +1,6 @@
+Version 0.2.10
+    - Feature:Implemented neuroCombatFromTraining
+    - Change: neuroCombat now outputs both the harmonized data and the ComBat estimates
+
 Version 0.2.9
     - Bugfix: dividing by 0 when values are constant within a batch/scanner group
