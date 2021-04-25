@@ -5,6 +5,7 @@ import pandas as pd
 import numpy as np
 import numpy.linalg as la
 import math
+import copy
 
 def neuroCombat(dat,
            covars,
@@ -49,7 +50,10 @@ def neuroCombat(dat,
         
     Returns
     -------
-    - A numpy array with the same shape as `dat` which has now been ComBat-harmonized
+    A dictionary of length 3:
+    - data: A numpy array with the same shape as `dat` which has now been ComBat-harmonized
+    - estimates: A dictionary of the ComBat estimates used for harmonization
+    - info: A dictionary of the inputs needed for ComBat harmonization
     """
     ##############################
     ### CLEANING UP INPUT DATA ###
@@ -70,11 +74,6 @@ def neuroCombat(dat,
 
     covar_labels = np.array(covars.columns)
     covars = np.array(covars, dtype='object') 
-    for i in range(covars.shape[-1]):
-        try:
-            covars[:,i] = covars[:,i].astype('float32')
-        except:
-            pass
 
     if isinstance(dat, pd.DataFrame):
         dat = np.array(dat, dtype='float32')
@@ -103,19 +102,26 @@ def neuroCombat(dat,
             ref_level = covars[np.int(ref_indices[0]),batch_col]
     # create dictionary that stores batch info
     (batch_levels, sample_per_batch) = np.unique(covars[:,batch_col],return_counts=True)
+    print(batch_levels)
+
+     # create design matrix
+    print('[neuroCombat] Creating design matrix')
+    design = make_design_matrix(covars, batch_col, cat_cols, num_cols, ref_level)
+    
+
     info_dict = {
         'batch_levels': batch_levels,
         'ref_level': ref_level,
         'n_batch': len(batch_levels),
         'n_sample': int(covars.shape[0]),
         'sample_per_batch': sample_per_batch.astype('int'),
-        'batch_info': [list(np.where(covars[:,batch_col]==idx)[0]) for idx in batch_levels]
+        'batch_info': [list(np.where(covars[:,batch_col]==idx)[0]) for idx in batch_levels],
+        'design': design
     }
 
-    # create design matrix
-    print('[neuroCombat] Creating design matrix')
-    design = make_design_matrix(covars, batch_col, cat_cols, num_cols, ref_level)
     
+
+   
     # standardize data across features
     print('[neuroCombat] Standardizing data across features')
     s_data, s_mean, v_pool, mod_mean = standardize_across_features(dat, design, info_dict)
@@ -142,12 +148,13 @@ def neuroCombat(dat,
                                     s_mean, v_pool, info_dict,dat)
 
     bayes_data = np.array(bayes_data)
-    estimates = {'batch': batch_col, 'var.pooled': v_pool, 'stand.mean': s_mean, 'mod.mean': mod_mean, 'gamma.star': gamma_star, 'delta.star': delta_star}
-    estimates = {**LS_dict, **estimates}
+    estimates = {'batches': info_dict['batch_levels'], 'var.pooled': v_pool, 'stand.mean': s_mean, 'mod.mean': mod_mean, 'gamma.star': gamma_star, 'delta.star': delta_star}
+    estimates = {**LS_dict, **estimates, }
 
     return {
         'data': bayes_data,
-        'estimates': estimates
+        'estimates': estimates,
+        'info': info_dict
     }
 
 
@@ -214,18 +221,12 @@ def standardize_across_features(X, design, info_dict):
     B_hat = np.vstack(betas).T
     
     #B_hat = np.dot(np.dot(la.inv(np.dot(design.T, design)), design.T), X.T)
-    if ref_level is None:
-        grand_mean = np.dot((sample_per_batch/ float(n_sample)).T, B_hat[:n_batch,:])
-    else:
+    if ref_level is not None:
         grand_mean = np.transpose(B_hat[ref_level,:])
+    else:
+        grand_mean = np.dot((sample_per_batch/ float(n_sample)).T, B_hat[:n_batch,:])
     stand_mean = np.dot(grand_mean.T.reshape((len(grand_mean), 1)), np.ones((1, n_sample)))
     #var_pooled = np.dot(((X - np.dot(design, B_hat).T)**2), np.ones((n_sample, 1)) / float(n_sample))
-
-    mod_mean = 0
-    if design is not None:
-        tmp = np.zeros(design.shape)
-        mod_mean = np.transpose(np.dot(tmp, B_hat))
-    ######### Continue here. 
 
     if ref_level is not None:
         X_ref = X[:,batch_info[ref_level]]
@@ -236,12 +237,20 @@ def standardize_across_features(X, design, info_dict):
         var_pooled = np.dot(((X - np.dot(design, B_hat).T)**2), np.ones((n_sample, 1)) / float(n_sample))
 
     var_pooled[var_pooled==0] = np.median(var_pooled!=0)
+    
+    mod_mean = 0
+    if design is not None:
+        tmp = copy.deepcopy(design)
+        tmp[:,range(0,n_batch)] = 0
+        mod_mean = np.transpose(np.dot(tmp, B_hat))
+    ######### Continue here. 
 
-    tmp = np.array(design.copy())
-    tmp[:,:n_batch] = 0
-    stand_mean  += np.dot(tmp, B_hat).T
 
-    s_data = ((X- stand_mean) / np.dot(np.sqrt(var_pooled), np.ones((1, n_sample))))
+    #tmp = np.array(design.copy())
+    #tmp[:,:n_batch] = 0
+    #stand_mean  += np.dot(tmp, B_hat).T
+
+    s_data = ((X- stand_mean - mod_mean) / np.dot(np.sqrt(var_pooled), np.ones((1, n_sample))))
 
     return s_data, stand_mean, var_pooled, mod_mean
 
@@ -436,71 +445,65 @@ def adjust_data_final(s_data, design, gamma_star, delta_star, stand_mean, var_po
 
 
 
-# @title neuroCombat harmonization using pre-trained estimates
-# @description [UNDER DEVELOPMENT] neuroCombat harmonization using
-#     parameters estimated from a training dataset. Estimated parameters
-#     are applied to a new dataset, assuming scanners/batches in the
-#     new dataset were also present in the training dataset.
-#
-# @param dat pandas dataframe with imaging features as rows,
-#                and scans/images as columns.
-# @param batch Numeric or character vector specifying the batch/scanner
-#     variable needed for harmonization. Length must be equal to the
-#     number of columns in dat.
-# @param estimates Prior neuroCombat estimates to be applied onto
-#     the new dataset. Usually obtained from the output of
-#     neuroCombat run on a training dataset.
-# @param mod Optional model matrix for outcome of interest and
-#     other covariates besides batch/scanner.
-# @param verbose Should progress messages be printed? TRUE by default.
-#
-# @return A dictionary of length 2. The first element (combat)
-#     contains the harmonized data. The second element (estimates) contains
-#     estimates and other parameters used during harmonization.
-
 
 def neuroCombatFromTraining(dat,
                             batch,
-                            estimates,
-                            mod=None,
-                            verbose=True):
+                            estimates):
+    """
+    Combat harmonization with pre-trained ComBat estimates [UNDER DEVELOPMENT]
+
+    Arguments
+    ---------
+    dat : a pandas data frame or numpy array for the new dataset to harmonize
+        - rows must be identical to the training dataset
+    
+    batch : numpy array specifying scanner/batch for the new dataset
+        - scanners/batches must also be present in the training dataset
+
+    estimates : dictionary of ComBat estimates from a previously-harmonized dataset
+        - should be in the same format as neuroCombat(...)['estimates']
+        
+    Returns
+    -------
+    A dictionary of length 2:
+    - data: A numpy array with the same shape as `dat` which has now been ComBat-harmonized
+    - estimates: A dictionary of the ComBat estimates used for harmonization
+    """
     print("[neuroCombatFromTraining] In development ...\n")
+    batch = np.array(batch, dtype="str")
     new_levels = np.unique(batch)
-    missing_levels = filter(lambda x: x not in estimates['batch'], new_levels)
-    missing_levels = np.array(missing_levels)
-    if missing_levels.ndim != 0:
-        raise ValueError("The batches " + missing_levels +
+    old_levels = np.array(estimates['batches'], dtype="str")
+    missing_levels = np.setdiff1d(new_levels, old_levels)
+    if missing_levels.shape[0] != 0:
+        raise ValueError("The batches " + str(missing_levels) +
                          " are not part of the training dataset")
 
-    # Step 0: standardize data
+
+    wh = [int(np.where(old_levels==x)[0]) if x in old_levels else None for x in batch]
+
+    
+
     var_pooled = estimates['var.pooled']
     stand_mean = estimates['stand.mean'][:, 0]
     mod_mean = estimates['mod.mean']
     gamma_star = estimates['gamma.star']
     delta_star = estimates['delta.star']
-    n_array = len(dat.columns)
-
-    if mod is not None:
-        if verbose:
-            print("[neuroCombatFromTraining] Using mean imputation to account for previous covariates adjustment in training dataset\n")
-
-    if mod is None:
-        stand_mean = stand_mean+mod_mean.mean()
-    else:
-        raise NotImplementedError(
-            "Including covariates for ComBat correction on a new dataset is not supported yet")
-
-    # Step 1: standardize data
+    n_array = dat.shape[1]   
+    stand_mean = stand_mean+mod_mean.mean(axis=1)
+ 
+    
     stand_mean = np.transpose([stand_mean, ]*n_array)
     bayesdata = np.subtract(dat, stand_mean)/np.sqrt(var_pooled)
-    # Step 2: remove estimates
-    gamma = np.transpose(np.repeat(gamma_star, repeats=2, axis=0))
-    delta = np.transpose(np.repeat(delta_star, repeats=2, axis=0))
+    
+    #gamma = np.transpose(np.repeat(gamma_star, repeats=2, axis=0))
+    #delta = np.transpose(np.repeat(delta_star, repeats=2, axis=0))
+    gamma = np.transpose(gamma_star[wh,:])
+    delta = np.transpose(delta_star[wh,:])
     bayesdata = np.subtract(bayesdata, gamma)/np.sqrt(delta)
-    # Step 3: transforming to original scale
+    
     bayesdata = bayesdata*np.sqrt(var_pooled) + stand_mean
     out = {
-        'combat': bayesdata,
+        'data': bayesdata,
         'estimates': estimates
     }
     return out
