@@ -102,7 +102,7 @@ def neuroCombat(dat,
             ref_level = covars[np.int(ref_indices[0]),batch_col]
     # create dictionary that stores batch info
     (batch_levels, sample_per_batch) = np.unique(covars[:,batch_col],return_counts=True)
-    print(batch_levels)
+    
 
      # create design matrix
     print('[neuroCombat] Creating design matrix')
