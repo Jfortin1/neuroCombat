@@ -145,7 +145,7 @@ def neuroCombat(dat,
     # adjust data
     print('[neuroCombat] Final adjustment of data')
     bayes_data = adjust_data_final(s_data, design, gamma_star, delta_star, 
-                                    s_mean, v_pool, info_dict,dat)
+                                    s_mean, v_pool, mod_mean, info_dict,dat)
 
     bayes_data = np.array(bayes_data)
     estimates = {'batches': info_dict['batch_levels'], 'var.pooled': v_pool, 'stand.mean': s_mean, 'mod.mean': mod_mean, 'gamma.star': gamma_star, 'delta.star': delta_star}
@@ -414,7 +414,7 @@ def find_non_eb_adjustments(s_data, LS, info_dict):
     
     return gamma_star, delta_star
 
-def adjust_data_final(s_data, design, gamma_star, delta_star, stand_mean, var_pooled, info_dict, dat):
+def adjust_data_final(s_data, design, gamma_star, delta_star, stand_mean, var_pooled, mod_mean, info_dict, dat):
     sample_per_batch = info_dict['sample_per_batch']
     n_batch = info_dict['n_batch']
     n_sample = info_dict['n_sample']
@@ -436,7 +436,7 @@ def adjust_data_final(s_data, design, gamma_star, delta_star, stand_mean, var_po
         bayesdata[:,batch_idxs] = numer / denom
 
     vpsq = np.sqrt(var_pooled).reshape((len(var_pooled), 1))
-    bayesdata = bayesdata * np.dot(vpsq, np.ones((1, n_sample))) + stand_mean
+    bayesdata = bayesdata * np.dot(vpsq, np.ones((1, n_sample))) + stand_mean + mod_mean
 
     if ref_level is not None:
         bayesdata[:, batch_info[ref_level]] = dat[:,batch_info[ref_level]]
