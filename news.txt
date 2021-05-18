@@ -1,3 +1,6 @@
+Version 0.2.12
+    - Bugfix: A bug was introduced in 0.2.11 for adjusted ComBat. Fixed now.
+
 Version 0.2.10
     - Feature:Implemented neuroCombatFromTraining
     - Change: neuroCombat now outputs both the harmonized data and the ComBat estimates
