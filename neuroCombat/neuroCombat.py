@@ -46,7 +46,7 @@ def neuroCombat(dat,
         - False by default
 
     ref_batch : batch (site or scanner) to be used as reference for batch adjustment.
-        - False by default
+        - None by default
         
     Returns
     -------
