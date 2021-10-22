@@ -148,7 +148,7 @@ def neuroCombat(dat,
                                     s_mean, mod_mean, v_pool, info_dict,dat)
 
     bayes_data = np.array(bayes_data)
-    estimates = {'batches': info_dict['batch_levels'], 'var.pooled': v_pool, 'stand.mean': s_mean, 'mod.mean': mod_mean, 'gamma.star': gamma_star, 'delta.star': delta_star}
+    estimates = {'batches': info_dict['batch_levels'], 'var.pooled': v_pool, 'stand.mean': s_mean[:, 0] +mod_mean.mean(axis=1), 'gamma.star': gamma_star, 'delta.star': delta_star}
     estimates = {**LS_dict, **estimates, }
 
     return {
@@ -484,12 +484,12 @@ def neuroCombatFromTraining(dat,
     
 
     var_pooled = estimates['var.pooled']
-    stand_mean = estimates['stand.mean'][:, 0]
-    mod_mean = estimates['mod.mean']
+    stand_mean = estimates['stand.mean']
+#    mod_mean = estimates['mod.mean']
     gamma_star = estimates['gamma.star']
     delta_star = estimates['delta.star']
     n_array = dat.shape[1]   
-    stand_mean = stand_mean+mod_mean.mean(axis=1)
+ #   stand_mean = stand_mean+mod_mean.mean(axis=1)
  
     
     stand_mean = np.transpose([stand_mean, ]*n_array)
