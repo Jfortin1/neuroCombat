@@ -32,6 +32,44 @@ class Combat(BaseEstimator, TransformerMixin):
             passed as a str, then this DataFrame should also contain a column containing
             the column w/ batch/scanner info.
 
+            Note: Any covariates which are categorical, that is to say, those that
+            still require dummy coding, should have 'category' as their dtype, this
+            can be set in pandas w/ df['col'] = df['col'].astype('category').
+            default = None.
+
+        include_y : bool, optional
+            This parameter specifies if y, the target variable when fitting, should
+            be treated as one of the covariates to try and preserve. Note that is this
+            is set to True, you also must set y_is_cat, and keep in mind that when predicting
+            on new samples, e.g., transform is called on new samples, the mean of y in the training
+            sample is used (as using y directly on the test set would be a breach of cross-validation).
+            default = False.
+
+        y_is_cat : bool, optional
+            This parameter let's Combat know if the target variable y is categorical or not.
+            If True, then it will dummy-coded internally when used for preserving its value,
+            otherwise if False, the value as is will be used.
+            default = False
+
+        eb : bool, optional
+            This parameter controls if Empirical Bayes be performed.
+            default = True
+
+        parametric : bool, optional
+            This parameter controls if parameter adjustments should be performed.
+            default = True
+
+        use_mean_for_new : bool, optional
+            This parameter describes the behavior of Combat when predicting
+            on new samples with respect to how covariates are handled. Specifically,
+            if True, then behavior mimics the function `neuroCombatFromTraining`,
+            and covariate corrections on new samples just use the mean value from those
+            covariates in the training set. Alternatively, the default behavior is to
+            instead base the correction off the actual covariate values in the new sample.
+
+            Note that this parameter refers to all other covariates except y, as y is a special
+            case, where in the context of new samples we have to use the mean estimate.
+
         verbose : bool, optional
             If True, then print verbose messages.
             default = False.
