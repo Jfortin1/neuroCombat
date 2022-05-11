@@ -22,4 +22,8 @@ setuptools.setup(
   packages=['neuroCombat'],
   version='0.2.12',
   zip_safe=False,
+  install_requires=[
+    'numpy>=1.16.5',
+    'pandas>=1.0.3',
+    'scikit-learn>=1.0.0'],
 )
