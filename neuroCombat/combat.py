@@ -2,6 +2,7 @@ from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.preprocessing import OneHotEncoder
 import pandas as pd
 import numpy as np
+from numpy.linalg import LinAlgError
 
 from .neuroCombat import (aprior, bprior, int_eprior,
                           it_sol, convert_zeroes)
@@ -459,7 +460,15 @@ def get_beta_with_nan(yy, mod):
     wh = np.isfinite(yy)
     mod = mod[wh, :]
     yy = yy[wh]
-    B = np.dot(np.dot(np.linalg.inv(np.dot(mod.T, mod)), mod.T), yy.T)
+
+    # If singular matrix error, try getting the pseudo inverse instead
+    # and use that.
+    try:
+        inv = np.linalg.inv(np.dot(mod.T, mod))
+    except LinAlgError:
+        inv = np.linalg.pinv(np.dot(mod.T, mod))
+
+    B = np.dot(np.dot(inv, mod.T), yy.T)
 
     return B
 
@@ -467,7 +476,7 @@ def get_b_hat(X, design):
     
     betas = []
     for i in range(X.shape[0]):
-        betas.append(get_beta_with_nan(X[i,:], design))
+        betas.append(get_beta_with_nan(X[i, :], design))
     
     return np.vstack(betas).T
 

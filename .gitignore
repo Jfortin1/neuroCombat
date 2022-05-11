@@ -3,3 +3,4 @@ neuroCombat/.DS_Store
 neuroCombat/__pycache__/
 dist/
 neuroCombat.egg-info
+*.pyc
