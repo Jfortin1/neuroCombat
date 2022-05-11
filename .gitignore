@@ -4,3 +4,5 @@ neuroCombat/__pycache__/
 dist/
 neuroCombat.egg-info
 *.pyc
+__pycache__
+.pytest_cache
