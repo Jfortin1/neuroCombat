@@ -71,5 +71,76 @@ data_combat = neuroCombat(dat=dat, ...)["data"]
 ```
 
 where `...` are the user-specified arguments needed for harmonization. 
+
+
+## Alternate Usage
+
+As of Version 0.3.0, neuroCombat now supports a class based implementation based on the scikit-learn style API.
+
+```python
+
+import pandas as pd
+import numpy as np
+from neuroCombat import Combat
+
+# Load the same example data, but as traditional samples x features
+data = pd.read_csv('testdata/testdata.csv').T
+
+# Specifying the same batch (scanner variable) as well as a biological
+# covariate to preserve as in the previous example, but with a different style api
+batch = pd.Series([1,1,1,1,1,2,2,2,2,2], index=data.index)
+covars = pd.DataFrame({'gender':[1,2,1,2,1,2,1,2,1,2]}, index=data.index)
+
+# Note, in this api, categorical variables should be indicated by
+# changing their data-type to category, like this
+covars['gender'] = covars['gender'].astype('category')
+
+# Initialize the Combat class
+combat = Combat(batch=batch, covars=covars)
+
+# Now we can use fit_transform to apply combat
+data_combat = combat.fit_transform(data)
+
+```
+
+
+## ML Example
+
+This API importantly further allows for neuroCombat to be easily and properly integrated into machine-learning workflows.
+The below example goes through a minimal example on synthetic data of how one might use Combat within an ML-style workflow.
+
+```python
+
+import pandas as pd
+import numpy as np
+from neuroCombat import Combat
+
+# Scikit-learn imports
+from sklearn.datasets import make_regression
+from sklearn.pipeline import make_pipeline
+from sklearn.model_selection import cross_val_score
+from sklearn.linear_model import RidgeCV
+
+# Generate some default synthetic regression data
+X, y = make_regression(n_samples=50, n_features=100)
+
+# Cast to dataframe / series, data as first 90 features, covars as last 10
+data = pd.DataFrame(X[:, :90])
+covars = pd.DataFrame(X[:, 90:])
+y = pd.Series(y)
+
+# Generate fake batch info
+batch = pd.Series(np.random.randint(3, size=100))
+
+# Init the combat transformer
+combat = Combat(batch=batch, covars=covars)
+
+# Make a scikit-learn style pipeline, combat than Ridge Regression
+pipe = make_pipeline(combat, RidgeCV())
+
+# Get the cross-validated score per 5-fold CV
+scores = cross_val_score(pipe, data, y)
+
+```
     
 

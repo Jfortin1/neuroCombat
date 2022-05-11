@@ -4,5 +4,10 @@ neuroCombat/__pycache__/
 dist/
 neuroCombat.egg-info
 *.pyc
-__pycache__
+__pycache__/
+__pycache__/*
 .pytest_cache
+*.ipynb
+.ipynb_checkpoints
+build
+neuroCombat/tests/__pycache__/test_combat.cpython-39-pytest-6.2.3.pyc

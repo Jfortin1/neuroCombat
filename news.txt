@@ -1,8 +1,13 @@
+Version 0.3.0
+    - Feature: New scikit-learn style class version of neuroCombat, Combat, with support for `neuroCombatFromTraining`-like behavior (but slightly modified to better handle covariates true values) when calling transform on new samples.
+    - Feature: New CI pipelines across OS'es + python versions along with a growing test suite in pytest.
+    - Change : Dependencies moved from requiriments.txt to inside of setup.py
+
 Version 0.2.12
     - Bugfix: A bug was introduced in 0.2.11 for adjusted ComBat. Fixed now.
 
 Version 0.2.10
-    - Feature:Implemented neuroCombatFromTraining
+    - Feature: Implemented neuroCombatFromTraining
     - Change: neuroCombat now outputs both the harmonized data and the ComBat estimates
 
 Version 0.2.9
