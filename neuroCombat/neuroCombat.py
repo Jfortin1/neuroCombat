@@ -8,14 +8,14 @@ import math
 import copy
 
 def neuroCombat(dat,
-           covars,
-           batch_col,
-           categorical_cols=None,
-           continuous_cols=None,
-           eb=True,
-           parametric=True,
-           mean_only=False,
-           ref_batch=None):
+                covars,
+                batch_col,
+                categorical_cols=None,
+                continuous_cols=None,
+                eb=True,
+                parametric=True,
+                mean_only=False,
+                ref_batch=None):
     """
     Run ComBat to remove scanner effects in multi-site imaging data
 
@@ -156,8 +156,6 @@ def neuroCombat(dat,
         'estimates': estimates,
         'info': info_dict
     }
-
-
 
 
 def make_design_matrix(Y, batch_col, cat_cols, num_cols, ref_level):
@@ -327,8 +325,6 @@ def it_sol(sdat, g_hat, d_hat, g_bar, t2, a, b, conv=0.0001):
         count = count + 1
     adjust = (g_new, d_new)
     return adjust 
-
-
 
 #Helper function for non-parametric adjustements:
 def int_eprior(sdat, g_hat, d_hat):
