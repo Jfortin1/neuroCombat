@@ -6,7 +6,7 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
     
 setuptools.setup(
-  author="Jean-Philippe Fortin, Nick Cullen, Tim Robert-Fitzgerald",
+  author="Jean-Philippe Fortin, Nick Cullen, Tim Robert-Fitzgerald, Sage Hahn",
   author_email='fortin946@gmail.com,',
   classifiers=[
     'License :: OSI Approved :: MIT License',
