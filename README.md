@@ -133,13 +133,17 @@ y = pd.Series(y)
 batch = pd.Series(np.random.randint(3, size=100))
 
 # Init the combat transformer
-combat = Combat(batch=batch, covars=covars)
+# Note that we are passing include_y as True, which
+# means we will try to preserve the values of our target variable
+# and y_is_cat is False, since y is not categorical.
+combat = Combat(batch=batch, covars=covars,
+                include_y=True, y_is_cat=False)
 
-# Make a scikit-learn style pipeline, combat than Ridge Regression
+# Make a scikit-learn style pipeline
 pipe = make_pipeline(combat, RidgeCV())
 
-# Get the cross-validated score per 5-fold CV
-scores = cross_val_score(pipe, data, y)
+# Get the cross-validated score
+cross_val_score(pipe, data, y)
 
 ```
     
