@@ -130,7 +130,6 @@ def test_consistency_with_neuroCombat_fit_from_train():
     X_trans2 = combat.transform(data)
     assert np.array_equal(X_trans, X_trans2)
 
-
 def test_consistency_interesting_case():
 
     # So one other thing we can look at with Combat vs. neuroCombat method
@@ -173,7 +172,6 @@ def test_consistency_interesting_case():
     from_train_res = neuroCombatFromTraining(dat=nc_args['dat'], batch=np.array(batch), estimates=nc_res['estimates'])
     X_trans2 = combat.transform(data)
     assert np.allclose(from_train_res['data'].T, X_trans2)
-
 
 def test_batch_as_str():
 
