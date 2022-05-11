@@ -264,11 +264,11 @@ class Combat(BaseEstimator, TransformerMixin):
         self.b_hat_ = get_b_hat(Xt, design)
         
         # Calculate grand mean, stand mean and var pooled
-        grand_mean = np.dot((self.sample_per_batch_ / float(self.n_sample_)).T,
-                             self.b_hat_[: self.n_batch_, :])
-        
-        ones = np.ones((1, self.n_sample_))
-        self.stand_mean_ = np.dot(grand_mean.T.reshape((len(grand_mean), 1)), ones)
+        self.grand_mean_ = np.dot((self.sample_per_batch_ / float(self.n_sample_)).T,
+                                   self.b_hat_[: self.n_batch_, :])
+
+        # Just  re-shaped grand mean
+        stand_mean = np.repeat(self.grand_mean_, self.n_sample_).reshape(-1, self.n_sample_)
         
         self.var_pooled_ = np.dot(((Xt - np.dot(design, self.b_hat_).T)**2),
                             np.ones((self.n_sample_, 1)) / float(self.n_sample_))
@@ -278,7 +278,7 @@ class Combat(BaseEstimator, TransformerMixin):
         self.mod_mean_ = self._calc_mod_mean(design)
         
         # Calc stand. data
-        s_data = (Xt - self.stand_mean_ - self.mod_mean_) / np.sqrt(self.var_pooled_)
+        s_data = (Xt - stand_mean - self.mod_mean_) / np.sqrt(self.var_pooled_)
         
         return s_data
 
@@ -374,7 +374,7 @@ class Combat(BaseEstimator, TransformerMixin):
         # Standardize
         if self.verbose:
             print('Standardize across features')
-        s_data = self._standardize_across_feats(X.T, design)
+        s_data = self._standardize_across_feats(X.T.copy(), design)
 
         # Fit ls and find priors
         if self.verbose:
@@ -389,25 +389,26 @@ class Combat(BaseEstimator, TransformerMixin):
     def _transform(self, X, transform_index=None, is_fit=False):
 
         # Get design matrix for transfrom data, fit=False and y fixed as None
-        # Note that is include_y is True, then thi
-        design = self._get_design_matrix(transform_index,  y=None, fit=False)
+        # Note that is include_y is True
+        design = self._get_design_matrix(transform_index, y=None, fit=False)
 
         # Standerdize data - changes if this is on the same fit data
         # If this is on the fit data than we can use the already calculated mod mean
         if is_fit:
-            dif = self.stand_mean_ + self.mod_mean_
+            dif = np.repeat(self.grand_mean_, len(X)).reshape(-1, len(X)) + self.mod_mean_
 
         # Otherwise, we can compute new mod mean based on the data to predicts covar values
         else:
 
             # Either use stored mod mean from fit
             if self.use_mean_for_new:
-                dif = self.stand_mean_[:, 0] + self.mod_mean_.mean(axis=1)
+                dif = self.grand_mean_ + self.mod_mean_.mean(axis=1)
                 dif = np.transpose([dif, ] * len(X))
 
             # Or calculate it new
             else:
-                dif = self.stand_mean_ + self._calc_mod_mean(design)
+                dif = np.repeat(self.grand_mean_, len(X)).reshape(-1, len(X)) +\
+                    self._calc_mod_mean(design)
 
         # Now we get the actual standardized data here
         # Note, for fit this is duplicated computation, but not a big deal
@@ -429,7 +430,7 @@ class Combat(BaseEstimator, TransformerMixin):
         return X_trans.T        
     
     def transform(self, X, transform_index=None):
-        
+
         # Convert from pandas df if needed
         if isinstance(X, pd.DataFrame):
             if transform_index is None:
