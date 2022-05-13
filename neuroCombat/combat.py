@@ -150,7 +150,7 @@ class Combat(BaseEstimator, TransformerMixin):
                 else:
 
                     self.y_encoder_ = OneHotEncoder(drop='first', sparse=False)
-                    y_encoded = self.y_encoder_.fit_transform(np.array(y.to_frame()))
+                    y_encoded = self.y_encoder_.fit_transform(np.array(y_series.to_frame()))
                     self.y_mean_  = y_encoded.mean(axis=0)
 
             # The non fit case is used in fit_transform too
@@ -158,7 +158,7 @@ class Combat(BaseEstimator, TransformerMixin):
 
                 # Encode y based on already computed
                 if self.y_is_cat:
-                    y_encoded = self.y_encoder_.transform(np.array(y.to_frame()))
+                    y_encoded = self.y_encoder_.transform(np.array(y_series.to_frame()))
 
         # If y isn't passed, then in transform new case
         else:
