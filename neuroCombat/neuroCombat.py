@@ -236,7 +236,7 @@ def standardize_across_features(X, design, info_dict):
     else:
         var_pooled = np.dot(((X - np.dot(design, B_hat).T)**2), np.ones((n_sample, 1)) / float(n_sample))
 
-    var_pooled[var_pooled==0] = np.median(var_pooled!=0)
+    var_pooled[var_pooled==0] = np.median(var_pooled[var_pooled!=0])
     
     mod_mean = 0
     if design is not None:
