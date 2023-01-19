@@ -21,6 +21,7 @@ def neuroCombat(
     parametric=True,
     mean_only=False,
     ref_batch=None,
+    regions=None
 ):
     """
     Run ComBat to remove scanner effects in multi-site imaging data
@@ -53,6 +54,8 @@ def neuroCombat(
 
     ref_batch : batch (site or scanner) to be used as reference for batch adjustment.
         - None by default
+
+    regions : regions used for the harmonisation
 
     Returns
     -------
@@ -96,18 +99,22 @@ def neuroCombat(
     # convert batch col to integer
     if ref_batch is None:
         ref_level = None
+        # create dictionary that stores batch info
+        (batch_levels, sample_per_batch) = np.unique(covars[:, batch_col], return_counts=True)
+        batch_levels_original = copy.deepcopy(batch_levels)
     else:
         ref_indices = np.argwhere(covars[:, batch_col] == ref_batch).squeeze()
         if ref_indices.shape[0] == 0:
             ref_level = None
             ref_batch = None
             print("[neuroCombat] batch.ref not found. Setting to None.")
-            covars[:, batch_col] = np.unique(covars[:, batch_col], return_inverse=True)[-1]
+            batch_levels_original, covars[:, batch_col] = np.unique(covars[:, batch_col], return_inverse=True)
         else:
-            covars[:, batch_col] = np.unique(covars[:, batch_col], return_inverse=True)[-1]
+            batch_levels_original, covars[:, batch_col] = np.unique(covars[:, batch_col], return_inverse=True)
             ref_level = covars[np.int(ref_indices[0]), batch_col]
-    # create dictionary that stores batch info
-    (batch_levels, sample_per_batch) = np.unique(covars[:, batch_col], return_counts=True)
+
+        # create dictionary that stores batch info
+        (batch_levels, sample_per_batch) = np.unique(covars[:, batch_col], return_counts=True)
 
     # create design matrix
     print("[neuroCombat] Creating design matrix")
@@ -155,7 +162,7 @@ def neuroCombat(
 
     bayes_data = np.array(bayes_data)
     estimates = {
-        "batches": info_dict["batch_levels"],
+        "batches":  batch_levels_original,
         "var.pooled": v_pool,
         "stand.mean": s_mean,
         "mod.mean": mod_mean,
@@ -166,6 +173,8 @@ def neuroCombat(
         **LS_dict,
         **estimates,
     }
+
+    info_dict["batch_levels"] = batch_levels_original
 
     return {"data": bayes_data, "estimates": estimates, "info": info_dict}
 
