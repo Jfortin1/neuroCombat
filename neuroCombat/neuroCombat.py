@@ -132,7 +132,7 @@ def neuroCombat(
 
     # standardize data across features
     print("[neuroCombat] Standardizing data across features")
-    s_data, s_mean, v_pool, mod_mean = standardize_across_features(dat, design, info_dict)
+    s_data, s_mean, v_pool, mod_mean, B_hat = standardize_across_features(dat, design, info_dict)
 
     # fit L/S models and find priors
     print("[neuroCombat] Fitting L/S model and finding priors")
@@ -168,6 +168,7 @@ def neuroCombat(
         "mod.mean": mod_mean,
         "gamma.star": gamma_star,
         "delta.star": delta_star,
+        "B.hat": B_hat,
     }
     estimates = {
         **LS_dict,
@@ -175,6 +176,7 @@ def neuroCombat(
     }
 
     info_dict["batch_levels"] = batch_levels_original
+    info_dict["covar_labels"] = covar_labels
 
     return {"data": bayes_data, "estimates": estimates, "info": info_dict}
 
@@ -276,7 +278,7 @@ def standardize_across_features(X, design, info_dict):
 
     s_data = (X - stand_mean - mod_mean) / np.dot(np.sqrt(var_pooled), np.ones((1, n_sample)))
 
-    return s_data, stand_mean, var_pooled, mod_mean
+    return s_data, stand_mean, var_pooled, mod_mean, B_hat[n_batch:, :]
 
 
 def aprior(delta_hat):
