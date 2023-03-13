@@ -21,7 +21,7 @@ def neuroCombat(
     parametric=True,
     mean_only=False,
     ref_batch=None,
-    regions=None
+    regions=None,
 ):
     """
     Run ComBat to remove scanner effects in multi-site imaging data
@@ -95,6 +95,7 @@ def neuroCombat(
     batch_col = np.where(covar_labels == batch_col)[0][0]
     cat_cols = [np.where(covar_labels == c_var)[0][0] for c_var in categorical_cols]
     num_cols = [np.where(covar_labels == n_var)[0][0] for n_var in continuous_cols]
+    cat_col_names = covar_labels[cat_cols]
 
     # convert batch col to integer
     if ref_batch is None:
@@ -108,9 +109,13 @@ def neuroCombat(
             ref_level = None
             ref_batch = None
             print("[neuroCombat] batch.ref not found. Setting to None.")
-            batch_levels_original, covars[:, batch_col] = np.unique(covars[:, batch_col], return_inverse=True)
+            batch_levels_original, covars[:, batch_col] = np.unique(
+                covars[:, batch_col], return_inverse=True
+            )
         else:
-            batch_levels_original, covars[:, batch_col] = np.unique(covars[:, batch_col], return_inverse=True)
+            batch_levels_original, covars[:, batch_col] = np.unique(
+                covars[:, batch_col], return_inverse=True
+            )
             ref_level = covars[np.int(ref_indices[0]), batch_col]
 
         # create dictionary that stores batch info
@@ -118,7 +123,9 @@ def neuroCombat(
 
     # create design matrix
     print("[neuroCombat] Creating design matrix")
-    design = make_design_matrix(covars, batch_col, cat_cols, num_cols, ref_level)
+    design, cat_names = make_design_matrix(
+        covars, batch_col, cat_cols, num_cols, ref_level, cat_col_names
+    )
 
     info_dict = {
         "batch_levels": batch_levels,
@@ -162,7 +169,7 @@ def neuroCombat(
 
     bayes_data = np.array(bayes_data)
     estimates = {
-        "batches":  batch_levels_original,
+        "batches": batch_levels_original,
         "var.pooled": v_pool,
         "stand.mean": s_mean,
         "mod.mean": mod_mean,
@@ -177,11 +184,23 @@ def neuroCombat(
 
     info_dict["batch_levels"] = batch_levels_original
     info_dict["covar_labels"] = covar_labels
+    info_dict["cat_names"] = cat_names
 
     return {"data": bayes_data, "estimates": estimates, "info": info_dict}
 
 
-def make_design_matrix(Y, batch_col, cat_cols, num_cols, ref_level):
+def to_categorical(y, nb_classes=None):
+    if not nb_classes:
+        nb_classes = np.max(y) + 1
+    Y = np.zeros((len(y), nb_classes))
+    for i in range(len(y)):
+        Y[i, y[i]] = 1.0
+    return Y
+
+
+def make_design_matrix(
+    Y, batch_col, cat_cols, num_cols, ref_level, cat_col_names, combat_info_estimates=None
+):
     """
     Return Matrix containing the following parts:
         - one-hot matrix of batch variable (full)
@@ -189,28 +208,57 @@ def make_design_matrix(Y, batch_col, cat_cols, num_cols, ref_level):
         - column for each continuous_cols
     """
 
-    def to_categorical(y, nb_classes=None):
-        if not nb_classes:
-            nb_classes = np.max(y) + 1
-        Y = np.zeros((len(y), nb_classes))
-        for i in range(len(y)):
-            Y[i, y[i]] = 1.0
-        return Y
-
     hstack_list = []
 
     ### batch one-hot ###
     # convert batch column to integer in case it's string
-    batch = np.unique(Y[:, batch_col], return_inverse=True)[-1]
-    batch_onehot = to_categorical(batch, len(np.unique(batch)))
+    batch_name, batch = np.unique(Y[:, batch_col], return_inverse=True)
+
+    if combat_info_estimates is not None:
+        batch_name_estimates, batch_estimates = np.unique(
+            combat_info_estimates["batch_levels"], return_inverse=True
+        )
+        assert set(batch_name).issubset(set(batch_name_estimates))
+        if set(batch_name) != set(batch_name_estimates):
+            for i, b in enumerate(batch):
+                current_name = batch_name[b]
+                (idx,) = np.where(batch_name_estimates == current_name)
+                batch[i] = batch_estimates[idx[0]]
+
+            batch_onehot = to_categorical(batch, len(np.unique(batch_estimates)))
+        else:
+            batch_onehot = to_categorical(batch, len(np.unique(batch)))
+
+    else:
+        batch_onehot = to_categorical(batch, len(np.unique(batch)))
+
     if ref_level is not None:
         batch_onehot[:, ref_level] = np.ones(batch_onehot.shape[0])
     hstack_list.append(batch_onehot)
 
     ### categorical one-hots ###
-    for cat_col in cat_cols:
-        cat = np.unique(np.array(Y[:, cat_col]), return_inverse=True)[1]
-        cat_onehot = to_categorical(cat, len(np.unique(cat)))[:, 1:]
+    cat_names = {}
+    for i, (cat_col, cat_col_name) in enumerate(zip(cat_cols, cat_col_names)):
+        cat_name, cat = np.unique(np.array(Y[:, cat_col]), return_inverse=True)
+        cat_names[cat_col_name] = (i, cat_name.tolist())
+        if combat_info_estimates is not None:
+            cat_name_estimates, cat_estimates = np.unique(
+                combat_info_estimates["cat_names"][cat_col_name][1], return_inverse=True
+            )
+            assert set(cat_name).issubset(set(cat_name_estimates)), \
+                f"Categorical covariate {cat_col_name} does not contain the same categories used for estimation."
+            if set(cat_name) != set(cat_name_estimates):
+                for ii, c in enumerate(cat):
+                    current_name = cat_name[c]
+                    (idx,) = np.where(cat_name_estimates == current_name)
+                    cat[ii] = cat_estimates[idx[0]]
+
+                cat_onehot = to_categorical(cat, len(np.unique(cat_estimates)))[:, 1:]
+            else:
+                cat_onehot = to_categorical(cat, len(np.unique(cat)))[:, 1:]
+
+        else:
+            cat_onehot = to_categorical(cat, len(np.unique(cat)))[:, 1:]
         hstack_list.append(cat_onehot)
 
     ### numerical vectors ###
@@ -220,7 +268,7 @@ def make_design_matrix(Y, batch_col, cat_cols, num_cols, ref_level):
         hstack_list.append(num)
 
     design = np.hstack(hstack_list)
-    return design
+    return design, cat_names
 
 
 def standardize_across_features(X, design, info_dict):
@@ -240,6 +288,7 @@ def standardize_across_features(X, design, info_dict):
     betas = []
     for i in tqdm(range(X.shape[0])):
         betas.append(get_beta_with_nan(X[i, :], design))
+
     B_hat = np.vstack(betas).T
 
     # B_hat = np.dot(np.dot(la.inv(np.dot(design.T, design)), design.T), X.T)
@@ -247,6 +296,7 @@ def standardize_across_features(X, design, info_dict):
         grand_mean = np.transpose(B_hat[ref_level, :])
     else:
         grand_mean = np.dot((sample_per_batch / float(n_sample)).T, B_hat[:n_batch, :])
+        # grand_mean = X.mean(axis=1)
     stand_mean = np.dot(grand_mean.T.reshape((len(grand_mean), 1)), np.ones((1, n_sample)))
     # var_pooled = np.dot(((X - np.dot(design, B_hat).T)**2), np.ones((n_sample, 1)) / float(n_sample))
 
