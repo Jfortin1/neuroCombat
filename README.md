@@ -31,11 +31,15 @@ data = np.genfromtxt('testdata/testdata.csv', delimiter=",", skip_header=1)
 
 # Specifying the batch (scanner variable) as well as a biological covariate to preserve:
 covars = {'batch':[1,1,1,1,1,2,2,2,2,2],
-          'gender':[1,2,1,2,1,2,1,2,1,2]} 
+          'gender':[1,2,1,2,1,2,1,2,1,2],
+          'age': [30, 20, 19, 21, 23, 30, 20, 19, 21, 23]} 
 covars = pd.DataFrame(covars)  
 
 # To specify names of the variables that are categorical:
 categorical_cols = ['gender']
+
+# To specify names of the variables that are continuous:
+continuous_cols = ['age']
 
 # To specify the name of the variable that encodes for the scanner/batch covariate:
 batch_col = 'batch'
@@ -44,6 +48,7 @@ batch_col = 'batch'
 data_combat = neuroCombat(dat=data,
     covars=covars,
     batch_col=batch_col,
+    continuous_cols=continuous_cols,
     categorical_cols=categorical_cols)["data"]
 ```
 
